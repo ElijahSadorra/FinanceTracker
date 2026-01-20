@@ -1,0 +1,10 @@
+{
+  "date_column": "Date",
+  "date_format": "%d %b %Y",
+  "amount_column": "Value",
+  "amount_multiplier": -1,
+  "currency": "GBP",
+  "merchant_column": "Description",
+  "description_column": "Type",
+  "account_type": "credit_card"
+}

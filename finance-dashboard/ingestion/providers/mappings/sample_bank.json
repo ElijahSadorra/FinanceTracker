@@ -1,0 +1,11 @@
+{
+  "date_column": "Date",
+  "date_format": "%Y-%m-%d",
+  "amount_column": "Amount",
+  "amount_multiplier": 1,
+  "currency": "GBP",
+  "merchant_column": "Payee",
+  "description_column": "Reference",
+  "transaction_id_column": "Transaction ID",
+  "account_type": "current"
+}

@@ -198,6 +198,21 @@ The Phase 1 schema and seed data live under `finance-dashboard/sql/` and are app
 
 Adminer (optional) will be available at `http://localhost:8080` unless you override `ADMINER_PORT`.
 
+## Phase 2: CSV Import
+
+**Run Phase 2**
+1. Start from the repository root and move into the project directory:
+   - `cd finance-dashboard`
+2. Start Postgres (if not already running):
+   - `docker compose up -d`
+3. Install Python dependencies:
+   - `python -m venv .venv`
+   - PowerShell: `.venv\\Scripts\\Activate.ps1`
+   - Bash: `source .venv/bin/activate`
+   - `pip install -r ingestion/requirements.txt`
+4. Import the sample CSV:
+   - `python -m ingestion import-csv --provider sample_bank --account "Main" --file ingestion/providers/imports/samples/sample_bank.csv`
+
 ## Optional Enhancements
 
 - ML-assisted categorisation (suggestions, not auto-apply).
