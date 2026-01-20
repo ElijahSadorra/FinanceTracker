@@ -1,292 +1,210 @@
-🧮 Open-Source Personal Finance Automation Dashboard
-
-A self-hosted, open-source system to automatically ingest, normalise, categorise, and visualise personal finance data across UK bank accounts and investment platforms.
-
-This project aggregates transactions into a single unified ledger, then exposes them via a mobile-friendly web dashboard with charts and tables.
-
-🎯 Goals
-
-Fully open-source stack
-
-No screen scraping or credential automation
-
-Browser-based dashboard (desktop + mobile)
-
-Automated ingestion where possible
-
-Manual import fallback where APIs are unavailable
-
-Clear, auditable data model
-
-Simple to self-host using Docker
-
-🧩 Supported Accounts
-Banking
-
-NatWest
-
-Credit Card
-
-Debit / Current Account
-
-Savings Account
-
-Starling
-
-Joint Current Account
-
-Investments / Savings
-
-Trading 212
-
-Stocks & Shares ISA
-
-Cash ISA
-
-Tembo
-
-Cash ISA
-
-Lifetime ISA (LISA)
-
-🧰 Tech Stack
-Core
-
-PostgreSQL – primary datastore
-
-Docker + Docker Compose – local & server deployment
-
-Python or C# – ingestion services
-
-APIs
-
-Open Banking (via aggregator or direct where possible)
-
-Starling Bank Developer API
-
-Trading 212 Public API
-
-Dashboard
-
-Metabase (preferred)
-or
-
-Apache Superset
-
-🔄 Data Ingestion Strategy
-1. Open Banking (Preferred)
-
-Used for NatWest accounts where available
-
-Consent-based, read-only
-
-Tokens refreshed securely
-
-2. Official APIs
-
-Starling: personal access token
-
-Trading 212: API key
-
-3. Statement Import (Fallback)
-
-CSV / OFX / PDF
-
-Used for Tembo ISAs and any unsupported accounts
-
-Must support safe re-imports
-
-🗃️ Unified Ledger Schema
-
-All data is normalised into a single transactions table.
-
-Minimum fields:
-
-id
-transaction_id
-source_provider
-account_name
-account_type
-datetime
-amount
-currency
-merchant
-description
-category
-tags[]
-import_hash
-created_at
-
-
-Additional tables:
-
-accounts
-
-categories
-
-category_rules
-
-balance_snapshots
-
-import_runs
-
-Requirements
-
-Idempotent imports
-
-Duplicate detection via hash
-
-Transfers between own accounts supported
-
-Investment events supported (buy/sell/dividend)
-
-🏷️ Categorisation Engine
-Rule-Based First (Deterministic)
-
-Rules can include:
-
-Merchant name matching
-
-Regex on description
-
-Amount direction / thresholds
-
-Account type context
-
-Rules are:
-
-Evaluated in order
-
-Configurable via file or database
-
-Overrideable per transaction
-
-Manual overrides must never be overwritten by re-imports.
-
-📊 Dashboard Requirements
-
-Dashboards must include:
-
-Charts
-
-Monthly spend by category
-
-Spend over time
-
-Net worth over time
-
-Income vs expenses (cashflow)
-
-Tables
-
-Full transaction ledger
-
-Filterable by:
-
-Date range
-
-Account
-
-Category
-
-Merchant
-
-Tags
-
-UX
-
-Mobile-friendly
-
-Read-only by default
-
-Auth protected
-
-No write access from dashboard
-
-🔐 Security Principles
-
-No credentials in source code
-
-All secrets via environment variables
-
-OAuth tokens encrypted at rest
-
-Database read-only user for dashboards
-
-Ingestion services isolated from dashboard
-
-🚀 Getting Started (High Level)
-
-Clone repository
-
-Configure .env
-
-Start services with Docker Compose
-
-Run ingestion jobs
-
-Open dashboard in browser
-
-Configure categories & dashboards
-
-🛠️ Implementation Order (Recommended)
-
-PostgreSQL schema
-
-Manual CSV import pipeline
-
-Dashboard with sample data
-
-Starling API ingestion
-
-Trading 212 API ingestion
-
-Open Banking integration
-
-Categorisation rules engine
-
-Scheduling & automation
-
-🗺️ Future Enhancements
-
-ML-assisted categorisation
-
-Budget tracking
-
-Alerts (overspend, low balance)
-
-Forecasting
-
-Mobile PWA
-
-Net-worth goals
-
-Export to CSV/Excel
-
-⚠️ Non-Goals
-
-Becoming a regulated AISP
-
-Selling this as a product
-
-Credential scraping
-
-Real-time transaction processing
-
-📄 License
-
-MIT (or similar permissive open-source license)
-
-🤖 For AI Assistants (Codex / Copilot)
-
-When generating code for this repository:
-
-Prefer simplicity over abstraction
-
-Write readable, auditable code
-
-Avoid over-engineering
-
-Keep ingestion, processing, and visualisation clearly separated
-
-Assume UK financial context
+# 🧮 Open-Source Personal Finance Automation Dashboard
+
+A self-hosted, open-source system to automatically ingest, normalise, categorise, and visualise personal finance data across UK bank accounts and investment platforms. The system aggregates transactions into a unified ledger, exposes them via a mobile-friendly dashboard, and keeps ingestion, storage, processing, and visualisation clearly separated.
+
+## Architecture Overview
+
+**High-level architecture diagram (text):**
+
+```
+[Bank/Investment APIs + Statement Imports]
+                 |
+                 v
+         [Ingestion Services]
+   (Open Banking, Starling, T212,
+      CSV/OFX/PDF Importers)
+                 |
+                 v
+          [Staging Tables]
+                 |
+                 v
+   [Normalisation + Dedup + Rules]
+                 |
+                 v
+         [Unified Ledger DB]
+                 |
+        ---------------------
+        |                   |
+        v                   v
+[Dashboard Read-Only User]  [Ops/Admin Tools]
+(Metabase/Superset)         (Rules, Imports)
+```
+
+**Design intent**
+- Clear separation: ingestion → staging → processing → unified ledger → read-only analytics.
+- Idempotent imports with deterministic hashes for safe re-ingestion.
+- Open-source stack for self-hosted deployments.
+
+## Data Sources & Ingestion
+
+**Sources**
+- **NatWest**: current, credit, savings via Open Banking.
+- **Starling**: joint current + savings/investments via Starling API.
+- **Trading 212**: Stocks & Shares ISA, Cash ISA via Trading 212 API.
+- **Tembo**: Cash ISA, Lifetime ISA via statement import (CSV/OFX/PDF).
+
+**Ingestion principles**
+- Prefer official APIs and Open Banking consent-based access.
+- No browser scraping or credential-stuffing.
+- Scheduled ingestion (hourly/daily) with idempotent re-runs.
+- Import hash + provider transaction IDs to prevent duplicates.
+
+**Pipeline outline**
+1. **Fetch**: Pull API data or parse statements into raw import records.
+2. **Stage**: Store raw payloads + metadata (source, import run, checksum).
+3. **Normalize**: Map fields to canonical transaction shape.
+4. **Deduplicate**: Apply `import_hash` + provider IDs.
+5. **Load**: Write to unified ledger tables.
+
+## Database Design
+
+**Core schema (normalized)**
+
+**transactions**
+- `id` (uuid)
+- `transaction_id` (provider-specific)
+- `source_provider` (natwest, starling, t212, tembo)
+- `account_id` (FK → accounts)
+- `account_name`
+- `account_type` (credit, debit, savings, isa, lisa)
+- `datetime`
+- `amount` (signed)
+- `currency`
+- `merchant`
+- `description`
+- `category_id` (FK → categories)
+- `tags` (text[])
+- `import_hash` (unique)
+- `created_at`
+
+**accounts**
+- `id` (uuid)
+- `provider`
+- `name`
+- `type`
+- `currency`
+- `account_identifier` (masked)
+
+**categories**
+- `id` (uuid)
+- `name`
+- `parent_id` (nullable for hierarchy)
+
+**category_rules**
+- `id` (uuid)
+- `priority` (int)
+- `merchant_match` (nullable)
+- `description_regex` (nullable)
+- `amount_min` / `amount_max` (nullable)
+- `account_type` (nullable)
+- `category_id` (FK → categories)
+
+**balance_snapshots**
+- `id` (uuid)
+- `account_id` (FK)
+- `datetime`
+- `balance`
+- `currency`
+
+**import_runs**
+- `id` (uuid)
+- `source_provider`
+- `started_at`
+- `completed_at`
+- `status`
+- `row_count`
+- `checksum`
+
+**investments** (optional specialized ledger table)
+- `id` (uuid)
+- `transaction_id`
+- `instrument`
+- `side` (buy/sell/dividend)
+- `quantity`
+- `price`
+- `fees`
+- `currency`
+
+**Notes**
+- `import_hash` is a stable hash of provider + transaction_id + datetime + amount + description.
+- Transfers between own accounts use a `transfer_group_id` (optional extension) to link both sides.
+
+## Categorisation Engine
+
+**Rule-based first** (deterministic and auditable):
+- Ordered rules evaluated by priority.
+- Matching supports merchant string, regex on description, amount ranges, and account type.
+- Rules live in the database and can be edited via a simple admin UI or configuration file.
+
+**Manual overrides**
+- Users can manually override a transaction’s category.
+- Re-imports never overwrite manual overrides.
+- Override state stored directly on the transaction record.
+
+## Dashboard Design
+
+**Recommended tool**: Metabase (open-source, simple to host). Superset as an alternative.
+
+**Key dashboards**
+1. **Monthly Spend by Category** (bar/pie)
+2. **Spend Over Time** (line)
+3. **Net Worth Over Time** (line)
+4. **Cashflow (Income vs Expenses)** (stacked/line)
+5. **Transactions Table** (filterable)
+
+**Filters**
+- Date range
+- Account
+- Category
+- Merchant
+- Tags
+
+**UX requirements**
+- Mobile-friendly
+- Read-only by default
+- Auth protected
+
+## Security Considerations
+
+- Secrets stored via environment variables.
+- OAuth tokens encrypted at rest.
+- Dashboard uses a **read-only database user**.
+- Ingestion services isolated from analytics UI.
+- No hard-coded credentials.
+
+## Implementation Roadmap
+
+1. **Database & schema**: Build PostgreSQL schema + migrations.
+2. **Manual imports**: CSV/OFX/PDF pipeline for Tembo and fallback ingestion.
+3. **Dashboard MVP**: Metabase + sample data.
+4. **Starling API ingestion**.
+5. **Trading 212 API ingestion**.
+6. **Open Banking integration** (NatWest + aggregator).
+7. **Categorisation rules engine** + admin UI.
+8. **Scheduling & automation** (cron / background jobs).
+9. **Hardening**: audit logs, backup strategy, monitoring.
+
+## Optional Enhancements
+
+- ML-assisted categorisation (suggestions, not auto-apply).
+- Budgeting and envelope-style views.
+- Alerts (overspend, low balance, threshold-based).
+- Forecasting (cashflow projection).
+- Net worth goals + progress tracking.
+- Export to CSV/Excel.
+- Mobile PWA.
+
+---
+
+**Non-goals**
+- Becoming a regulated AISP.
+- Credential scraping or browser automation.
+- Real-time transaction processing (daily/hourly is sufficient).
+
+**License**
+- MIT (or similar permissive open-source license).
+
+**AI assistant guidance**
+- Prefer simplicity over abstraction.
+- Keep ingestion, processing, and visualisation clearly separated.
+- Assume UK financial context.
