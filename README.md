@@ -184,6 +184,20 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 8. **Scheduling & automation** (cron / background jobs).
 9. **Hardening**: audit logs, backup strategy, monitoring.
 
+## Phase 1: Database
+
+The Phase 1 schema and seed data live under `finance-dashboard/sql/` and are applied automatically when Postgres first initializes using `docker/postgres/initdb.d`. This is a simple MVP migration strategy (schema-on-init) that is sufficient until a dedicated migration tool is added in a later phase.
+
+**Run Phase 1**
+1. Copy the example environment file and adjust credentials:
+   - `cp finance-dashboard/.env.example finance-dashboard/.env`
+2. Start Postgres (and Adminer UI) locally:
+   - `docker compose -f finance-dashboard/docker-compose.yml up -d`
+3. Verify schema is loaded:
+   - `docker compose -f finance-dashboard/docker-compose.yml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\\dt"`
+
+Adminer (optional) will be available at `http://localhost:8080` unless you override `ADMINER_PORT`.
+
 ## Optional Enhancements
 
 - ML-assisted categorisation (suggestions, not auto-apply).
