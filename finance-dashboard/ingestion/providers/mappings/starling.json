@@ -1,0 +1,10 @@
+{
+  "date_column": "Date",
+  "date_format": "%d/%m/%Y",
+  "amount_column": "Amount (GBP)",
+  "amount_multiplier": 1,
+  "currency": "GBP",
+  "merchant_column": "Counter Party",
+  "description_column": "Reference",
+  "account_type": "current"
+}

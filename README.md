@@ -31,6 +31,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 ```
 
 **Design intent**
+
 - Clear separation: ingestion → staging → processing → unified ledger → read-only analytics.
 - Idempotent imports with deterministic hashes for safe re-ingestion.
 - Open-source stack for self-hosted deployments.
@@ -38,18 +39,21 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 ## Data Sources & Ingestion
 
 **Sources**
+
 - **NatWest**: current, credit, savings via Open Banking.
 - **Starling**: joint current + savings/investments via Starling API.
 - **Trading 212**: Stocks & Shares ISA, Cash ISA via Trading 212 API.
 - **Tembo**: Cash ISA, Lifetime ISA via statement import (CSV/OFX/PDF).
 
 **Ingestion principles**
+
 - Prefer official APIs and Open Banking consent-based access.
 - No browser scraping or credential-stuffing.
 - Scheduled ingestion (hourly/daily) with idempotent re-runs.
 - Import hash + provider transaction IDs to prevent duplicates.
 
 **Pipeline outline**
+
 1. **Fetch**: Pull API data or parse statements into raw import records.
 2. **Stage**: Store raw payloads + metadata (source, import run, checksum).
 3. **Normalize**: Map fields to canonical transaction shape.
@@ -61,6 +65,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 **Core schema (normalized)**
 
 **transactions**
+
 - `id` (uuid)
 - `transaction_id` (provider-specific)
 - `source_provider` (natwest, starling, t212, tembo)
@@ -78,6 +83,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `created_at`
 
 **accounts**
+
 - `id` (uuid)
 - `provider`
 - `name`
@@ -86,11 +92,13 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `account_identifier` (masked)
 
 **categories**
+
 - `id` (uuid)
 - `name`
 - `parent_id` (nullable for hierarchy)
 
 **category_rules**
+
 - `id` (uuid)
 - `priority` (int)
 - `merchant_match` (nullable)
@@ -100,6 +108,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `category_id` (FK → categories)
 
 **balance_snapshots**
+
 - `id` (uuid)
 - `account_id` (FK)
 - `datetime`
@@ -107,6 +116,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `currency`
 
 **import_runs**
+
 - `id` (uuid)
 - `source_provider`
 - `started_at`
@@ -116,6 +126,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `checksum`
 
 **investments** (optional specialized ledger table)
+
 - `id` (uuid)
 - `transaction_id`
 - `instrument`
@@ -126,17 +137,20 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - `currency`
 
 **Notes**
+
 - `import_hash` is a stable hash of provider + transaction_id + datetime + amount + description.
 - Transfers between own accounts use a `transfer_group_id` (optional extension) to link both sides.
 
 ## Categorisation Engine
 
 **Rule-based first** (deterministic and auditable):
+
 - Ordered rules evaluated by priority.
 - Matching supports merchant string, regex on description, amount ranges, and account type.
 - Rules live in the database and can be edited via a simple admin UI or configuration file.
 
 **Manual overrides**
+
 - Users can manually override a transaction’s category.
 - Re-imports never overwrite manual overrides.
 - Override state stored directly on the transaction record.
@@ -146,6 +160,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 **Recommended tool**: Metabase (open-source, simple to host). Superset as an alternative.
 
 **Key dashboards**
+
 1. **Monthly Spend by Category** (bar/pie)
 2. **Spend Over Time** (line)
 3. **Net Worth Over Time** (line)
@@ -153,6 +168,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 5. **Transactions Table** (filterable)
 
 **Filters**
+
 - Date range
 - Account
 - Category
@@ -160,6 +176,7 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 - Tags
 
 **UX requirements**
+
 - Mobile-friendly
 - Read-only by default
 - Auth protected
@@ -189,14 +206,38 @@ A self-hosted, open-source system to automatically ingest, normalise, categorise
 The Phase 1 schema and seed data live under `finance-dashboard/sql/` and are applied automatically when Postgres first initializes using `docker/postgres/initdb.d`. This is a simple MVP migration strategy (schema-on-init) that is sufficient until a dedicated migration tool is added in a later phase.
 
 **Run Phase 1**
-1. Copy the example environment file and adjust credentials:
-   - `cp finance-dashboard/.env.example finance-dashboard/.env`
-2. Start Postgres (and Adminer UI) locally:
-   - `docker compose -f finance-dashboard/docker-compose.yml up -d`
-3. Verify schema is loaded:
-   - `docker compose -f finance-dashboard/docker-compose.yml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\\dt"`
 
-Adminer (optional) will be available at `http://localhost:8080` unless you override `ADMINER_PORT`.
+1. Copy the example environment file and adjust credentials:
+   - `.venv\Scripts\Activate.ps1`
+2. Ensure docker engine is running:
+   - `Turn on docker desktop`
+3. Start Postgres (and Adminer UI) locally:
+   - `docker compose -f docker-compose.yml up -d`
+4. Verify schema is loaded:
+   - `docker compose -f docker-compose.yml ps`
+5. Login into PostgreSQL Webpage
+   - Go to `http://localhost:8080`
+   1. System: `PostgreSQL`
+   2. Server: `postgres`
+   3. Username: `finance_app`
+   4. Password: `change_me`
+   5. Database: `finance`
+
+## Phase 2: CSV Import
+
+**Run Phase 2**
+
+1. Start from the repository root and move into the project directory:
+   - `cd finance-dashboard`
+2. Start Postgres (if not already running):
+   - `docker compose up -d`
+3. Install Python dependencies:
+   - `python -m venv .venv`
+   - PowerShell: `.venv\\Scripts\\Activate.ps1`
+   - Bash: `source .venv/bin/activate`
+   - `pip install -r ingestion/requirements.txt`
+4. Import the sample CSV:
+   - `python -m ingestion import-csv --provider sample_bank --account "Main" --file ingestion/providers/imports/samples/sample_bank.csv`
 
 ## Optional Enhancements
 
@@ -211,14 +252,17 @@ Adminer (optional) will be available at `http://localhost:8080` unless you overr
 ---
 
 **Non-goals**
+
 - Becoming a regulated AISP.
 - Credential scraping or browser automation.
 - Real-time transaction processing (daily/hourly is sufficient).
 
 **License**
+
 - MIT (or similar permissive open-source license).
 
 **AI assistant guidance**
+
 - Prefer simplicity over abstraction.
 - Keep ingestion, processing, and visualisation clearly separated.
 - Assume UK financial context.
